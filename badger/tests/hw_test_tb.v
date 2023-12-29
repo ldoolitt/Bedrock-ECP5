@@ -92,6 +92,7 @@ hw_test #(.ip(ip), .mac(mac)) vgmii(
 // Initialize some memory
 // Otherwise x's leak into the packet, which confuses everyone
 // especially the CRC computation.
+`ifdef USE_TESTING_MAC
 integer iix;
 integer mac_aw=12;
 initial begin
@@ -100,5 +101,6 @@ initial begin
 		vgmii.rx_mac.pack_mem_h[iix] = 0;
 	end
 end
+`endif
 
 endmodule

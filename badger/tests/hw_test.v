@@ -108,7 +108,18 @@ lb_demo_slave slave(.clk(lb_clk), .addr(lb_addr),
 // Clearly not useful in the long run to drive this only from
 // the localbus, but doing so makes for a much lighter-weight test
 // than installing a real soft-core CPU.
+wire [tx_mac_aw-1:0] buf_start_addr;
+wire [15:0] host_tx_rdata;
+wire tx_mac_start;
+wire [tx_mac_aw-1:0] host_tx_raddr;
+wire [7:0] rx_mac_d;
+wire [11:0] rx_mac_a;
+wire rx_mac_accept, rx_mac_status_s;
+wire [7:0] rx_mac_status_d;
 parameter tx_mac_aw=10;
+wire rx_mac_wen;
+
+`ifdef USE_TESTING_MAC
 wire host_clk = lb_clk;
 wire host_write = lb_control_strobe & ~lb_control_rd & (lb_addr[23:20]==1);
 wire [tx_mac_aw:0] host_waddr = lb_addr[tx_mac_aw:0];
@@ -116,11 +127,6 @@ wire [15:0] host_wdata = lb_data_out[15:0];
 wire [10:0] host_raddr = lb_addr[10:0];  // for Rx MAC
 
 // Rx MAC with DPRAM
-wire [7:0] rx_mac_d;
-wire [11:0] rx_mac_a;
-wire rx_mac_wen;
-wire rx_mac_accept, rx_mac_status_s;
-wire [7:0] rx_mac_status_d;
 base_rx_mac rx_mac(
 	// host access
 	.host_clk(host_clk), .host_raddr(host_raddr),
@@ -135,10 +141,6 @@ base_rx_mac rx_mac(
 // memory and control signals are handled external to mac_subset.v
 // in this branch, which the testbenches were not designed for ...
 // the next few lines are patching that up
-wire [tx_mac_aw-1:0] host_tx_raddr;
-wire [15:0] host_tx_rdata;
-wire [tx_mac_aw-1:0] buf_start_addr;
-wire tx_mac_start;
 mac_compat_dpram #(
 	.mac_aw(tx_mac_aw)
 ) mac_compat_dpram_inst (
@@ -153,6 +155,12 @@ mac_compat_dpram #(
 	.buf_start_addr(buf_start_addr),
 	.tx_mac_start(tx_mac_start)
 );
+`else
+assign buf_start_addr = 0;
+assign host_tx_rdata = 0;
+assign tx_mac_start = 0;
+assign rx_mac_accept = 0;
+`endif
 
 // Instantiate the Real Work
 parameter enable_bursts=1;
