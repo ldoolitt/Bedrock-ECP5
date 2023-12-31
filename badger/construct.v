@@ -39,7 +39,7 @@ module construct #(
 	output eth_strobe_short  // doesn't
 );
 
-// Capture state across clock domains, convert back to binary
+// Capture state across clock domains, and convert Gray code back to binary
 reg [paw-1:0] gray_l=0, state=0;
 // verilator lint_save
 // verilator lint_off UNOPTFLAT
@@ -61,6 +61,9 @@ always @(posedge clk) begin
 end
 assign xdomain_fault = xdomain_fault_r;
 
+// Pipeline register for pbuf_out, so ECP5 can make timing
+reg [8:0] pbuf_out_r=0;
+always @(posedge clk) pbuf_out_r <= pbuf_out;
 
 // Construct frame pointer that tracks the one in scanner.v
 wire packet_active;
@@ -80,12 +83,14 @@ always @(posedge clk) fp_r <= fp;
 
 reg [5:0] pc_r=0;
 // SOF: Start Of Frame
-wire pre_sof = pbuf_out[8] & ~pbuf_out[7] && (pc_r==0);
-wire sof = pbuf_out[8] & pbuf_out[7] && (pc_r==0);  // hack to get around x's in fp_offset
-wire [7:0] pbuf_out8 = pbuf_out[7:0];
+// in old (non-pipelined) version, pre_sof was asserted for 0 or 1 cycles; now it's 1 or 2 cycles
+wire pre_sof = pbuf_out_r[8] & ~pbuf_out_r[7] && (pc_r==0);
+wire sof = pbuf_out_r[8] & pbuf_out_r[7] && (pc_r==0);  // hack to get around x's in fp_offset
+wire [7:0] pbuf_out8 = pbuf_out_r[7:0];
 wire signed [5:0] fp_offset, cf_offset;
 reg live=0;
-assign packet_active = pre_sof | sof | live;
+// assign packet_active = pre_sof | sof | live;
+assign packet_active = pbuf_out_r[8] | live;
 reg [10:0] pack_len_r=0;
 wire pc_not_saturated = |(~pc_r[5:4]);  // check if pc < 48
 wire [5:0] next_pc = sof ? 2 : live ? pc_r + pc_not_saturated : 0;
@@ -100,7 +105,7 @@ reg sof_d=0;
 // Would it take fewer resources to replace sof_d with (live && pc_r == 2)?
 // Or to replace (live && pc_r==3) with sof_dd?  Need to measure to find out.
 // Could be worth breaking this up into 2 always blocks (badge and data)?
-// Not really, they both have to touch the "live" register.
+// Not really, since they both have to touch the "live" register.
 always @(posedge clk) begin
 	pc_r <= next_pc;
 	sof_d <= sof;
@@ -129,11 +134,12 @@ wire [1:0] out, chk_in;
 wire [7:0] template;
 construct_tx_table prog(.a({category, pc_r}),
 	.v({out, fp_offset, cf_offset, chk_in, template}));
-assign addr = fp + {{5{fp_offset[5]}}, fp_offset};
+// assign addr = fp + {{5{fp_offset[5]}}, fp_offset};
+assign addr = packet_active ? (fp + {{5{fp_offset[5]}}, fp_offset} + 1) : (state+p_offset);
 assign ip_a = pc_r + cf_offset;
 
 // Align cycles with the one-cycle delay going through RAM
-// (a bit wasteful, could mess with table generation instead?)
+// (a bit wasteful; maybe we could mess with table generation instead?)
 // Pipelining not shown in doc/tx_path.eps
 reg [7:0] template_d=0;
 reg [1:0] out_d=0, chk_in_d=0;
@@ -143,7 +149,7 @@ always @(posedge clk) begin
 	chk_in_d <= chk_in;
 end
 
-// Multiplexers, need to stay consistent with tx_gen.py
+// Multiplexers, that need to stay consistent with tx_gen.py
 reg [7:0] d_chk=0;
 always @(posedge clk) case (chk_in_d)
 	2'b00: d_chk <= pbuf_out8;

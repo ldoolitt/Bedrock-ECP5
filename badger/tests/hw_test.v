@@ -116,7 +116,7 @@ wire [7:0] rx_mac_d;
 wire [11:0] rx_mac_a;
 wire rx_mac_accept, rx_mac_status_s;
 wire [7:0] rx_mac_status_d;
-parameter tx_mac_aw=10;
+parameter tx_mac_aw=1;
 wire rx_mac_wen;
 
 `ifdef USE_TESTING_MAC
@@ -195,11 +195,19 @@ rtefi_blob #(.ip(ip), .mac(mac), .mac_aw(tx_mac_aw), .p3_enable_bursts(enable_bu
 	.p3_addr(lb_addr), .p3_control_strobe(lb_control_strobe),
 	.p3_control_rd(lb_control_rd), .p3_control_rd_valid(lb_control_rd_valid),
 	.p3_data_out(lb_data_out), .p3_data_in(lb_data_in),
+`ifdef USE_SPI_FLASH
 	.p4_spi_clk(boot_clk), .p4_spi_cs(boot_cs),
 	.p4_spi_mosi(boot_mosi), .p4_spi_miso(boot_miso),
 	.p4_busy(boot_busy),
+`endif
 	.rx_mon(rx_mon), .tx_mon(tx_mon), .in_use(blob_in_use)
 );
+`ifndef USE_SPI_FLASH
+assign p4_spi_clk = 0;
+assign p4_spi_cs = 0;
+assign p4_spi_mosi = 0;
+assign p4_busy = 0;
+`endif
 assign vgmii_tx_er=1'b0;
 assign in_use = blob_in_use | boot_busy;
 

@@ -60,7 +60,7 @@ vpath %.v $(DSP_DIR) $(HOMELESS_DIR) $(SERIAL_IO_DIR)
 vpath %.eps ..
 
 all: crc_selfcheck_check derive_check crc8e_guts_check udp_port_cam_check
-all: scanner_check hack_icmp_cksum_check rtefi_pipe_check hw_test_tb
+all: scanner_check hack_icmp_cksum_check rtefi_pipe_tb hw_test_tb
 all: hello_check speed_test_check mem_gateway_check spi_flash_check
 all: Vrtefi_blob Vhw_test Vmem_gateway_check Vcluster udprtx
 all: test_tx_check precog_check mac_subset_check
@@ -69,7 +69,7 @@ all: rtefi_live lb_timing_demo.vcd cluster_run_check
 # all: lb_timing_demo.pdf
 
 # Packet Badger synthesizable code
-RTEFI_CLIENT_LIST = hello.v speed_test.v mem_gateway.v spi_flash.v
+RTEFI_CLIENT_LIST = hello.v speed_test.v mem_gateway.v # spi_flash.v
 RTEFI_EXTRA_V = spi_flash_engine.v
 include ../rules.mk
 
